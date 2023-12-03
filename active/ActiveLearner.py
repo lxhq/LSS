@@ -16,7 +16,7 @@ class ActiveLearner(object):
 		self.biased_sample = args.biased_sample
 
 	def train(self, model, criterion, criterion_cal,
-			  train_datasets, val_datasets, optimizer, scheduler=None, active = False):
+			  train_datasets, val_datasets, test_datasets, optimizer, scheduler=None, active = False):
 		if self.args.cuda:
 			model.to(self.args.device)
 		epochs = self.active_epochs if active else self.args.epochs
@@ -28,7 +28,7 @@ class ActiveLearner(object):
 			print("Training the {}/{} Training set".format(loader_idx, len(train_loaders)))
 			for epoch in range(epochs):
 				epoch_loss, epoch_loss_cla = 0.0, 0.0
-				for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label) in \
+				for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label, name) in \
 						enumerate(dataloader):
 					if self.args.cuda:
 						decomp_x, decomp_edge_index, decomp_edge_attr = \
@@ -39,7 +39,7 @@ class ActiveLearner(object):
 					output = output.squeeze()
 					# print("output_cla", output_cla)
 					# print("label", label)
-					loss = criterion(output, card)
+					loss = criterion(output, card.squeeze())
 					epoch_loss += loss.item()
 
 					if self.args.multi_task and self.args.coeff > 0:
@@ -55,16 +55,18 @@ class ActiveLearner(object):
 				if scheduler is not None and (epoch + 1) % self.args.decay_patience == 0:
 					scheduler.step()
 				print("{}-th QuerySet, {}-th Epoch: Reg. Loss={:.4f}, Cla. Loss={:.4f}"
-					  .format(loader_idx, epoch, epoch_loss, epoch_loss_cla))
+					  .format(loader_idx, epoch, epoch_loss, epoch_loss_cla), flush=True)
+				if (epoch + 1) % 5 == 0 and (epoch + 1) != epochs:
+					self.evaluate(model, criterion, test_datasets, print_res = True, print_detail=False)
 
 			# Evaluation the model
-			all_eval_res = self.evaluate(model, criterion, val_datasets, print_res = True)
+			all_eval_res = self.evaluate(model, criterion, test_datasets, print_res = True, print_detail=True)
 		end = datetime.datetime.now()
 		elapse_time = (end - start).total_seconds()
-		print("Training time: {:.4f}s".format(elapse_time))
+		print("Training time: {:.4f}s".format(elapse_time), flush=True)
 		return model, elapse_time
 
-	def evaluate(self, model, criterion, eval_datasets, print_res = False):
+	def evaluate(self, model, criterion, eval_datasets, print_res = False, print_detail=False):
 		if self.args.cuda:
 			model.to(self.args.device)
 		model.eval()
@@ -74,7 +76,7 @@ class ActiveLearner(object):
 			res = []
 			loss, l1 = 0.0, 0.0
 			start = datetime.datetime.now()
-			for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label) in \
+			for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label, name) in \
 					enumerate(dataloader):
 				if self.args.cuda:
 					decomp_x, decomp_edge_index, decomp_edge_attr = \
@@ -84,16 +86,16 @@ class ActiveLearner(object):
 				# print(decomp_x)
 				output, output_cla = model(decomp_x, decomp_edge_index, decomp_edge_attr)
 				output = output.squeeze()
-				loss += criterion(card, output).item()
-				l1 += torch.abs(card - output).item()
+				loss += criterion(card.squeeze(), output).item()
+				l1 += torch.abs(card.squeeze() - output).item()
 
-				res.append((card.item(), output.item()))
+				res.append((card.item(), output.item(), name[0]))
 			end = datetime.datetime.now()
 			elapse_time = (end - start).total_seconds()
 			all_eval_res.append((res, loss, l1, elapse_time))
 
 		if print_res:
-			print_eval_res(all_eval_res)
+			print_eval_res(all_eval_res, print_details=print_detail)
 		return all_eval_res
 
 	def active_test(self, model, test_datasets, reject_set = None):
@@ -183,7 +185,7 @@ class ActiveLearner(object):
 
 		reject_set = []
 		if pretrain:
-			model, _ = self.train(model, criterion, criterion_cla, train_datasets, val_datasets, optimizer, scheduler, active= False)
+			model, _ = self.train(model, criterion, criterion_cla, train_datasets, val_datasets, test_datasets, optimizer, scheduler, active= False)
 		active_train_datasets = train_datasets
 		for iter in range(self.active_iters):
 

@@ -165,20 +165,20 @@ class QuerySampler(object):
 		return sample
 
 class QueryDecompose(object):
-	def __init__(self, queryset_dir: str, true_card_dir: str, dataset: str, k = 3):
+	def __init__(self, queryset_dir: str, query_names: str, true_card_path: str, data_graph_path: str, k = 3):
 		"""
 		load the query graphs, true counts and perform query decomposition
 		"""
-		self.queryset = queryset_dir
-		self.dataset = dataset
-		self.queryset_load_path = os.path.join(queryset_dir, dataset)
-		self.true_card_dir = true_card_dir
-		self.true_card_load_path = os.path.join(true_card_dir, dataset)
+		self.dataset = data_graph_path
+		self.queryset_load_path = queryset_dir
+		self.queries = self.load_queries(query_names)
+		self.query_cards = self.load_card(true_card_path)
 		self.k = k
 		self.num_queries = 0
-		self.all_subsets = {} # {(size, patten) -> [(decomp_graphs, true_card]}
+		# self.all_subsets = {} # {(size, patten) -> [(decomp_graphs, true_card]}
 		# preserve the undecomposed queries
-		self.all_queries = {} # {(size, patten) -> [(graph, card)]}
+		# self.all_queries = {} # {(size, patten) -> [(graph, card)]}
+		self.all_subsets = [] # [(decomp_graphs, true_card, name)]
 		self.lower_card = 10 ** 0
 		self.upper_card = 10 ** 20
 
@@ -187,35 +187,35 @@ class QueryDecompose(object):
 	def decomose_queries(self):
 		avg_label_den = 0.0
 		distinct_card = {}
-		subsets_dir = os.listdir(self.queryset_load_path)
-		for subset_dir in subsets_dir:
-			queries_dir = os.path.join(self.queryset_load_path, subset_dir)
-			if not os.path.isdir(queries_dir):
+		# subsets_dir = os.listdir(self.queryset_load_path)
+		# for subset_dir in subsets_dir:
+		# 	queries_dir = os.path.join(self.queryset_load_path, subset_dir)
+		# 	if not os.path.isdir(queries_dir):
+		# 		continue
+		# 	pattern, size = subset_dir.split("_")[0], int(subset_dir.split("_")[1])
+		# 	self.all_subsets[(pattern, size)] = []
+		# 	self.all_queries[(pattern, size)] = []
+		for query_dir in self.queries:
+			query_load_path = os.path.join(self.queryset_load_path, query_dir)
+			if not os.path.isfile(query_load_path) or os.path.splitext(query_load_path)[1] == ".pickle":
 				continue
-			pattern, size = subset_dir.split("_")[0], int(subset_dir.split("_")[1])
-			self.all_subsets[(pattern, size)] = []
-			self.all_queries[(pattern, size)] = []
-			for query_dir in os.listdir(queries_dir):
-				query_load_path = os.path.join(self.queryset_load_path, subset_dir, query_dir)
-				card_load_path = os.path.join(self.true_card_load_path, subset_dir, query_dir)
-				if not os.path.isfile(query_load_path) or os.path.splitext(query_load_path)[1] == ".pickle":
-					continue
-				# load, decompose the query
-				query, label_den = self.load_query(query_load_path)
-				avg_label_den += label_den
-				graphs = self.decompose(query)
-				true_card = self.load_card(card_load_path)
-				if true_card >=  self.upper_card or true_card < self.lower_card:
-					continue
-				true_card = true_card + 1 if true_card == 0 else true_card
-				self.all_subsets[(pattern, size)].append((graphs, true_card))
-				self.all_queries[(pattern, size)].append((query, true_card))
-				self.num_queries += 1
-				# save the decomposed query
-				#query_save_path = os.path.splitext(query_load_path)[0] + ".pickle"
-				#self.save_decomposed_query(graphs, true_card, query_save_path)
-				#print("save decomposed query: {}".format(query_save_path))
-		print("average label density: {}".format(avg_label_den/self.num_queries))
+			# load, decompose the query
+			query, label_den = self.load_query(query_load_path)
+			avg_label_den += label_den
+			graphs = self.decompose(query)
+			true_card = self.query_cards[query_dir]
+			if true_card >=  self.upper_card or true_card < self.lower_card:
+				continue
+			true_card = true_card + 1 if true_card == 0 else true_card
+			self.all_subsets.append((graphs, true_card, query_dir.split('.')[0]))
+			# self.all_subsets[(pattern, size)].append((graphs, true_card))
+			# self.all_queries[(pattern, size)].append((query, true_card))
+			self.num_queries += 1
+			# save the decomposed query
+			#query_save_path = os.path.splitext(query_load_path)[0] + ".pickle"
+			#self.save_decomposed_query(graphs, true_card, query_save_path)
+			#print("save decomposed query: {}".format(query_save_path))
+		print("average label density: {}".format(avg_label_den/self.num_queries), flush=True)
 
 
 	def decompose(self, query):
@@ -307,7 +307,9 @@ class QueryDecompose(object):
 				src, dst = int(tokens[1]), int(tokens[2])
 				tmp_labels = [int(tokens[3])]
 				#tmp_labels = [int(token) for token in tokens[3 : ]]
-				labels = [] if -1 in tmp_labels else tmp_labels
+				# labels = [] if -1 in tmp_labels else tmp_labels
+				# There is no edge labels in all graphs in the experiment
+				labels = []
 				edges_list.append((src, dst, {"labels": labels}))
 
 		query = nx.Graph()
@@ -320,12 +322,27 @@ class QueryDecompose(object):
 		label_den = float(label_cnt) / query.number_of_nodes()
 		return query, label_den
 
+	# def load_card(self, card_load_path):
+	# 	with open(card_load_path, "r") as in_file:
+	# 		card = in_file.readline().strip()
+	# 		card = int(card)
+	# 		in_file.close()
+	# 	return card
+
 	def load_card(self, card_load_path):
-		with open(card_load_path, "r") as in_file:
-			card = in_file.readline().strip()
-			card = int(card)
-			in_file.close()
-		return card
+		res = {}
+		with open(card_load_path, 'r') as file:
+			for line in file.readlines():
+				tokens = line.split(';')
+				res[tokens[0] + '.graph'] = int(tokens[1])
+		return res
+	
+	def load_queries(self, query_namrs_path):
+		res = []
+		with open(query_namrs_path, 'r') as file:
+			for line in file.readlines():
+				res.append(line.strip())
+		return res
 
 	def save_decomposed_query(self, graphs, card, save_path):
 		with open(save_path, "wb") as out_file:

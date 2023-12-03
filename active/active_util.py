@@ -15,9 +15,10 @@ def _to_cuda(l):
 
 
 def _to_datasets(all_sets, num_classes = 10):
-	datasets = [QueryDataset(queries=queries, num_classes=10)
-				for queries in all_sets ] if isinstance(all_sets, list) \
-		else [ QueryDataset(queries=all_sets) ]
+	# datasets = [QueryDataset(queries=queries, num_classes=10)
+	# 			for queries in all_sets ] if isinstance(all_sets, list) \
+	# 	else 
+	datasets = [ QueryDataset(queries=all_sets) ]
 	return datasets
 
 def _to_dataloaders(datasets, batch_size = 1, shuffle = True):
@@ -59,15 +60,16 @@ def data_split_cv(all_sets, num_fold = 5, seed = 1):
 		all_fold_val_sets.append(val_sets)
 	return all_fold_train_sets, all_fold_val_sets
 
-def get_prediction_statistics(errors: list):
+def get_prediction_statistics(errors: list, print_details=True):
 	lower, upper = np.quantile(errors, 0.25), np.quantile(errors, 0.75)
-	print("<" * 80)
-	print("Predict Result Profile of {} Queries:".format(len(errors)))
-	print("Min/Max: {:.4f} / {:.4f}".format(np.min(errors), np.max(errors)))
-	print("Mean: {:.4f}".format(np.mean(errors)))
-	print("Median: {:.4f}".format(np.median(errors)))
-	print("25%/75% Quantiles: {:.4f} / {:.4f}".format(lower, upper))
-	print(">" * 80)
+	if print_details:
+		print("<" * 80)
+		print("Predict Result Profile of {} Queries:".format(len(errors)))
+		print("Min/Max: {:.4f} / {:.4f}".format(np.min(errors), np.max(errors)))
+		print("Mean: {:.4f}".format(np.mean(errors)))
+		print("Median: {:.4f}".format(np.median(errors)))
+		print("25%/75% Quantiles: {:.4f} / {:.4f}".format(lower, upper))
+		print(">" * 80, flush=True)
 	error_median = abs(upper - lower)
 	return error_median
 
@@ -86,19 +88,19 @@ def print_eval_res(all_eval_res, print_details= True):
 	total_loss, total_l1 = 0.0, 0.0
 	all_errors = []
 	for i, (res, loss, l1, elapse_time) in enumerate(all_eval_res):
-		print("Evaluation result of {}-th Eval set: Loss= {:.4f}, Avg. L1 Loss= {:.4f}, Avg. Pred. Time= {:.9f}(s)"
-			  .format(i, loss, l1/len(res), elapse_time/len(res)))
-		errors = [ (output - card) for card, output in res]
-		get_prediction_statistics(errors)
+		# print("Evaluation result of {}-th Eval set: Loss= {:.4f}, Avg. L1 Loss= {:.4f}, Avg. Pred. Time= {:.9f}(s)"
+		# 	  .format(i, loss, l1/len(res), elapse_time/len(res)), flush=True)
+		errors = [ (output - card) for card, output, name in res]
+		# get_prediction_statistics(errors)
 		all_errors += errors
 		total_loss += loss
 		total_l1 += l1
 		if print_details:
-			for card, output in res:
-				print("Card (log): {:.4f}, Pred (log) {:.4f}, Diff (log)= {:.4f}"
-					  .format(card, output, output - card))
-	print("Evaluation result of Eval dataset: Total Loss= {:.4f}, Total L1 Loss= {:.4f}".format(total_loss, total_l1))
-	error_median = get_prediction_statistics(all_errors)
+			for card, output, name in res:
+				print("{}, Card (log): {:.4f}, Pred (log): {:.4f}, Diff (log): {:.4f}"
+					  .format(name, card, output, output - card), flush=True)
+	print("Evaluation result of Eval dataset: Total Loss= {:.4f}, Total L1 Loss= {:.4f}".format(total_loss, total_l1), flush=True)
+	error_median = get_prediction_statistics(all_errors, print_details=print_details)
 	return error_median
 
 def save_eval_res(args, sizes, all_eval_res, save_res_dir):

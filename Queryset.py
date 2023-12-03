@@ -12,17 +12,17 @@ from torch.utils.data import DataLoader
 
 
 class Queryset(object):
-	def __init__(self, args, all_subsets):
+	def __init__(self, args, train_queries, test_queries):
 		"""
 		all_subsets: {(size, patten) -> [(graphs, true_card]} // all queries subset
 		"""
 		self.args = args
-		self.data_dir = args.data_dir
-		self.dataset = args.dataset
+		# self.data_dir = args.data_dir
+		# self.dataset = args.dataset
 		self.num_queries = 0
 
 		# load the data graph and its statistical information
-		self.data_graph = DataGraph(data_dir = self.data_dir, dataset = self.dataset)
+		self.data_graph = DataGraph(args.data_graph_path)
 		self.node_label_card, self.edge_label_card = self.data_graph.node_label_card, self.data_graph.edge_label_card
 
 		self.num_nodes = self.data_graph.num_nodes
@@ -31,14 +31,14 @@ class Queryset(object):
 		self.edge_label_fre = 0
 
 
-		self.label_dict = self.load_label_mapping() if self.dataset == 'aids' or self.dataset == 'aids_gen' else \
-			{key: key for key in self.node_label_card.keys()}  # label_id -> embed_id
-		embed_feat_path = os.path.join(args.embed_feat_dir, "{}.emb.npy".format(args.dataset))
-		embed_feat = np.load(embed_feat_path)
+		# self.label_dict = self.load_label_mapping() if self.dataset == 'aids' or self.dataset == 'aids_gen' else \
+		self.label_dict = {key: key for key in self.node_label_card.keys()}  # label_id -> embed_id
+		# embed_feat_path = os.path.join(args.embed_feat_dir, "{}.emb.npy".format(args.dataset))
+		# embed_feat = np.load(embed_feat_path)
 
 		#assert embed_feat.shape[0] == len(self.node_label_card) + 1, "prone embedding size error!"
-		self.embed_dim = embed_feat.shape[1]
-		self.embed_feat = torch.from_numpy(embed_feat)
+		# self.embed_dim = embed_feat.shape[1]
+		# self.embed_feat = torch.from_numpy(embed_feat)
 		if self.args.embed_type == "freq":
 			self.num_node_feat = len(self.node_label_card)
 		elif self.args.embed_type == "n2v" or self.args.embed_type == "prone" or self.args.embed_type == "nrp":
@@ -59,7 +59,14 @@ class Queryset(object):
 
 
 		# transform the decomposed query to torch tensor
-		self.all_subsets = self.transform_query_to_tensors(all_subsets)
+		# self.all_subsets = self.transform_query_to_tensors(all_subsets)
+		self.train_sets = self.transform_query_to_tensors(train_queries)
+		self.test_sets = self.transform_query_to_tensors(test_queries)
+		self.val_sets = []
+		self.num_train_queries = len(self.train_sets)
+		self.num_test_queries = len(self.test_sets)
+		self.num_val_queries = len(self.val_sets)
+		return
 
 		self.all_queries = []
 		# split by query patterns and sizes
@@ -158,15 +165,16 @@ class Queryset(object):
 
 
 	def transform_query_to_tensors(self, all_subsets):
-		tmp_subsets = {}
-		for (pattern, size), graphs_card_pairs in all_subsets.items():
-			tmp_subsets[(pattern, size)] = []
-			for (graphs, card) in graphs_card_pairs:
-				decomp_x, decomp_edge_index, decomp_edge_attr, _ = \
-					self._get_decomposed_graph_data(graphs)
-				tmp_subsets[(pattern, size)].append((decomp_x, decomp_edge_index, decomp_edge_attr, card))
-				self.num_queries += 1
-
+		# tmp_subsets = {}
+		tmp_subsets = []
+		# for (pattern, size), graphs_card_pairs in all_subsets.items():
+		for (graphs, card, name) in all_subsets:
+			# tmp_subsets[(pattern, size)] = []
+			# for (graphs, card) in graphs_card_pairs:
+			decomp_x, decomp_edge_index, decomp_edge_attr, _ = \
+				self._get_decomposed_graph_data(graphs)
+			tmp_subsets.append((decomp_x, decomp_edge_index, decomp_edge_attr, card, name))
+			self.num_queries += 1
 		return tmp_subsets
 
 
@@ -269,18 +277,19 @@ class Queryset(object):
 		print("# Edge Feat: {}".format(self.num_edge_feat))
 		print("# Node label fre: {}".format(self.node_label_fre))
 		print("# Edge label fre: {}".format(self.edge_label_fre))
-		print(">" * 80)
+		print(">" * 80, flush=True)
 
 
 
 
 class DataGraph(object):
-	def __init__(self, data_dir, dataset):
-		self.data_dir = data_dir
-		self.data_set = dataset
+	def __init__(self, data_graph_path):
+		# self.data_dir = data_dir
+		# self.data_set = dataset
 		self.max_node_label_num, self.min_node_label_num = 0, float('inf')
 		self.max_edge_label_num, self.min_edge_label_num = 0, float('inf')
-		self.data_load_path = os.path.join(data_dir, dataset, "{}.txt".format(dataset))
+		# self.data_load_path = os.path.join(data_dir, dataset, "{}.txt".format(dataset))
+		self.data_load_path = data_graph_path
 		self.graph, self.node_label_card, self.edge_label_card = self.load_graph()
 		self.num_nodes = self.graph.number_of_nodes()
 		self.num_edges = self.graph.number_of_edges()
@@ -300,9 +309,9 @@ class DataGraph(object):
 		for line in file:
 			if line.strip().startswith("v"):
 				tokens = line.strip().split()
-				# v nodeID label1 label2 ... (may have multiple labels)
+				# v nodeID label1 degree (may have multiple labels)
 				id = int(tokens[1])
-				labels = [int(token) for token in tokens[2:]]
+				labels = [int(token) for token in tokens[2:-1]]
 				#labels = [] if -1 in tmp_labels else tmp_labels
 				for label in labels:
 					if label not in node_label_card.keys():
@@ -338,7 +347,7 @@ class DataGraph(object):
 			node_label_card[key] = val / graph.number_of_nodes()
 
 		from scipy.stats import entropy
-		print("data graph label entropy: {}".format(entropy(list(node_label_card.values()))))
+		print("data graph label entropy: {}".format(entropy(list(node_label_card.values()))), flush=True)
 
 		for key, val in edge_label_card.items():
 			edge_label_card[key] = val / graph.number_of_edges()
@@ -346,7 +355,7 @@ class DataGraph(object):
 
 	def print_data_graph_info(self):
 		print("<" * 80)
-		print("Data Graph {} Profile:".format(self.data_set))
+		# print("Data Graph {} Profile:".format(self.data_set))
 		print("# Nodes: {}".format(self.graph.number_of_nodes()))
 		print("# Edges: {}".format(self.graph.number_of_edges()))
 		print("# of Node Labels: {}".format(len(self.node_label_card)))
@@ -354,7 +363,7 @@ class DataGraph(object):
 		print("Max/Min Node Labels: {}/{}".format(self.max_node_label_num, self.min_node_label_num))
 		print("Max/Min Edge Labels: {}/{}".format(self.max_edge_label_num, self.min_edge_label_num))
 		print("Max Degree: {}".format(self.max_deg))
-		print(">" * 80)
+		print(">" * 80, flush=True)
 
 
 class QueryDataset(Dataset):
@@ -375,13 +384,13 @@ class QueryDataset(Dataset):
 		"""
 		decomp_x, decomp_edge_attr, decomp_edge_attr: list[Tensor]
 		"""
-		decomp_x, decomp_edge_index, decomp_edge_attr, card = self.queries[index]
+		decomp_x, decomp_edge_index, decomp_edge_attr, card, name = self.queries[index]
 		idx = math.ceil(math.log(card, self.label_base))
 		idx = self.num_classes - 1 if idx >= self.num_classes else idx
 		card = torch.tensor(math.log(card, 2), dtype=torch.float)
 		label = torch.tensor(idx, dtype=torch.long)
 
-		return decomp_x, decomp_edge_index, decomp_edge_attr, card, label
+		return decomp_x, decomp_edge_index, decomp_edge_attr, card, label, name
 
 
 

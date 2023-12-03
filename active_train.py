@@ -8,7 +8,7 @@ from active import ActiveLearner, _to_datasets, print_eval_res, data_split_cv, s
 import cardnet
 import os
 from util import model_checkpoint, load_model
-
+import sys
 
 def main(args):
 	"""
@@ -27,23 +27,33 @@ def main(args):
 	decay_factor = args.decay_factor
 
 
-	QD = QueryDecompose(queryset_dir=queryset_dir, true_card_dir=true_card_dir, dataset=dataset, k=args.k)
+	# QD = QueryDecompose(queryset_dir=queryset_dir, true_card_dir=true_card_dir, dataset=dataset, k=args.k)
 	# decompose the query
-	QD.decomose_queries()
-	all_subsets = QD.all_subsets
+	# QD.decomose_queries()
+	# all_subsets = QD.all_subsets
 
-	QS = Queryset(args= args, all_subsets=all_subsets)
+	QD_train = QueryDecompose(queryset_dir=args.query_dir, query_names=args.train_queries, 
+						   true_card_path=args.true_card_path, data_graph_path=args.data_graph_path, k=args.k)
+	QD_train.decomose_queries()
+	train_queries = QD_train.all_subsets
+
+	QD_test = QueryDecompose(queryset_dir=args.query_dir, query_names=args.test_queries, 
+						   true_card_path=args.true_card_path, data_graph_path=args.data_graph_path, k=args.k)
+	QD_test.decomose_queries()
+	test_queries = QD_test.all_subsets
+
+	QS = Queryset(args= args, train_queries=train_queries, test_queries=test_queries)
 
 	num_node_feat = QS.num_node_feat
 	num_edge_feat = QS.num_edge_feat
 	QS.print_queryset_info()
 
-	train_sets, val_sets, test_sets, all_train_sets = QS.train_sets, QS.val_sets, QS.test_sets, QS.all_train_sets
-	train_datasets = _to_datasets(train_sets, num_classes) if args.cumulative else _to_datasets(all_train_sets, num_classes)
+	train_sets, val_sets, test_sets = QS.train_sets, QS.val_sets, QS.test_sets
+	train_datasets = _to_datasets(train_sets, num_classes)
 	val_datasets, test_datasets, = _to_datasets(val_sets, num_classes), _to_datasets(test_sets, num_classes)
 
 	model = cardnet.CardNet(args, num_node_feat= num_node_feat, num_edge_feat = num_edge_feat)
-	print(model)
+	print(model, flush=True)
 	criterion = torch.nn.MSELoss()
 	criterion_cla = torch.nn.NLLLoss()
 	optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -255,6 +265,7 @@ if __name__ == "__main__":
 	parser.add_argument("--save_res_dir", type=str, default="./result/")
 	parser.add_argument("--model_file", type=str, default="aids_homo.pth")
 	parser.add_argument("--model_save_dir", type=str, default="./models")
+	parser.add_argument("--output_path", type=str, default="dummy.txt")
 
 	# Other parameters
 	parser.add_argument("--matching", default="homo", type=str,
@@ -287,12 +298,22 @@ if __name__ == "__main__":
 	args.queryset_dir = args.queryset_homo_dir if args.matching == "homo" else  args.queryset_iso_dir
 	args.true_card_dir = args.true_homo_dir if args.matching == "homo" else args.true_iso_dir
 
+	args.train_queries = os.path.join(args.full_data_dir, args.dataset, "train.csv")
+	args.test_queries = os.path.join(args.full_data_dir, args.dataset, "test.csv")
+	args.query_dir = os.path.join(args.full_data_dir, args.dataset, "query_graph")
+	args.data_graph_path = os.path.join(args.full_data_dir, args.dataset, 'data_graph', args.dataset + '.graph')
+	args.true_card_path = os.path.join(args.full_data_dir, args.dataset, "query_graph_cards.csv")
+	# The output_path should be "../../output.txt"
+	args.output_name = args.output_path.split('/')[-1].split('.')[0]
 
+	output_file = open(args.output_path, 'w')
+	sys.stdout = output_file
 	if args.verbose:
-		print(args)
+		print(args, flush=True)
 	if args.mode == "cross_val":
 		cross_validate(args)
 	elif args.mode == "ensemble":
 		ensemble_learn(args)
 	else: # train/test/pre-train
 		main(args)
+	output_file.close()

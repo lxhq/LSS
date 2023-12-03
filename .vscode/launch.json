@@ -1,0 +1,39 @@
+{
+    "configurations": [
+        {
+            "name": "Python: LSS Project",
+            "type": "python",
+            "request": "launch",
+            "program": "active_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            // Training args
+            "args": [
+                "--batch_size", "2", 
+                "--epochs", "1", 
+                "--multi_task", "", 
+                "--model_type", "GIN", 
+                "--dataset", "yeast", 
+                "--mode", "train", 
+                "--embed_type", "freq", 
+                "--active_iters", "0", 
+                "--matching", "iso", 
+                "--output_path", "./outputs/dummy.txt", 
+                "--full_data_dir", "/home/lxhq/Documents/workspace/dataset/"
+            ]
+
+            //Testing args
+            // "args": [
+            //     "--multi_task", "True", 
+            //     "--model_type", "GIN", 
+            //     "--dataset", "yeast", 
+            //     "--mode", "test", 
+            //     "--embed_type", "freq", 
+            //     "--active_iters", "0", 
+            //     "--matching", "iso", 
+            //     "--model_save_dir", "./models",
+            //     "--model_file", "model_GIN_80_nocumu_multi-task_True_0.7.pth",
+            // ]
+        }
+    ]
+}

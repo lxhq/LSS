@@ -206,7 +206,7 @@ def model_checkpoint(args, model, optimizer, scheduler=None, model_dir = None):
 	if model_dir is not None:
 		file_name = model_dir
 	else:
-		file_name = "model_{}_{}_{}.pth".format(args.model_type, args.epochs, cumulative_flag) if args.active_iters == 0 \
+		file_name = "model_{}_{}_{}_{}.pth".format(args.output_name, args.model_type, args.epochs, cumulative_flag) if args.active_iters == 0 \
 			else "model_{}_{}_{}_{}_{}_{}.pth".format(args.model_type, args.epochs, cumulative_flag, args.active_iters, args.uncertainty, args.budget)
 	model_save_path = os.path.join(model_save_path, file_name)
 	torch.save(model_snapshot, model_save_path)

@@ -306,7 +306,7 @@ class QueryDecompose(object):
 				tokens = line.strip().split()
 				src, dst = int(tokens[1]), int(tokens[2])
 				tmp_labels = [int(tokens[3])]
-				#tmp_labels = [int(token) for token in tokens[3 : ]]
+				# tmp_labels = [int(token) for token in tokens[3 : ]]
 				# labels = [] if -1 in tmp_labels else tmp_labels
 				# There is no edge labels in all graphs in the experiment
 				labels = []

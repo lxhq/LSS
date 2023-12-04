@@ -28,21 +28,24 @@ def get_command(dataset, epochs, output_path, full_data_dir, learning_rate):
     return command
 
 if __name__ == '__main__':
-    dataset = 'yeast'
-    full_data_dir = '/home/lxhq/Documents/workspace/dataset/'
-    output_dir = 'outputs/{}/'.format(dataset)
-    if not Path(output_dir).is_dir():
-        os.makedirs(output_dir)
-    learning_rates = [1e-3, 5e-4, 1e-4]
+    full_data_dir = '/home/ubuntu/Documents/workspace/dataset/'
+    datasets = ['youtube', 'yeast']
+    learning_rates = [1e-4]
     epochs = [150]
-    repeat = 4
-    for epoch in epochs:
-        for learning_rate in learning_rates:
-            processes = []
-            for idx in range(repeat):
-                output_name = 'baseline_{}_{}_{}.txt'.format(epoch, learning_rate, idx)
-                output_path = output_dir + output_name
-                command = get_command(dataset, epoch, output_path, full_data_dir, learning_rate)
-                processes.append(execute_binary(command))
-            for process in processes:
-                process.wait()
+    repeat = 10
+    for dataset in datasets:
+        output_dir = 'outputs/{}/'.format(dataset)
+        if not Path(output_dir).is_dir():
+            os.makedirs(output_dir)
+        for epoch in epochs:
+            for learning_rate in learning_rates:
+                processes = []
+                for idx in range(repeat):
+                    output_name = 'baseline_{}_{}_{}.txt'.format(epoch, learning_rate, idx)
+                    output_path = output_dir + output_name
+                    command = get_command(dataset, epoch, output_path, full_data_dir, learning_rate)
+                    processes.append(execute_binary(command))
+                    if (idx + 1) % 5 == 0:
+                        for process in processes:
+                            process.wait()
+                        process = []

@@ -325,8 +325,10 @@ class DataGraph(object):
 			if line.strip().startswith("e"):
 				tokens = line.strip().split()
 				src, dst = int(tokens[1]), int(tokens[2])
-				labels = [int(token) for token in tokens[3:]]
-				#labels = [] if -1 in tmp_labels else tmp_labels
+				# labels = [int(token) for token in tokens[3:]]
+				# labels = [] if -1 in tmp_labels else tmp_labels
+				# There is no edge labels in all data graphs in this experiment
+				labels = []
 				for label in labels:
 					if label not in edge_label_card.keys():
 						edge_label_card[label] = 1.0

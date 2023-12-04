@@ -13,13 +13,13 @@
                 "--epochs", "1", 
                 "--multi_task", "", 
                 "--model_type", "GIN", 
-                "--dataset", "yeast", 
+                "--dataset", "youtube", 
                 "--mode", "train", 
                 "--embed_type", "freq", 
                 "--active_iters", "0", 
                 "--matching", "iso", 
                 "--output_path", "./outputs/dummy.txt", 
-                "--full_data_dir", "/home/lxhq/Documents/workspace/dataset/"
+                "--full_data_dir", "/home/ubuntu/Documents/workspace/dataset/"
             ]
 
             //Testing args

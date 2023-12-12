@@ -70,30 +70,31 @@ class ActiveLearner(object):
 		if self.args.cuda:
 			model.to(self.args.device)
 		model.eval()
-		all_eval_res = []
-		eval_loaders = _to_dataloaders(datasets=eval_datasets)
-		for loader_idx, dataloader in enumerate(eval_loaders):
-			res = []
-			loss, l1 = 0.0, 0.0
-			start = datetime.datetime.now()
-			for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label, name) in \
-					enumerate(dataloader):
-				if self.args.cuda:
-					decomp_x, decomp_edge_index, decomp_edge_attr = \
-						_to_cuda(decomp_x), _to_cuda(decomp_edge_index), _to_cuda(decomp_edge_attr)
-					card, label = card.cuda(), label.cuda()
+		with torch.no_grad():
+			all_eval_res = []
+			eval_loaders = _to_dataloaders(datasets=eval_datasets)
+			for loader_idx, dataloader in enumerate(eval_loaders):
+				res = []
+				loss, l1 = 0.0, 0.0
+				start = datetime.datetime.now()
+				for i, (decomp_x, decomp_edge_index, decomp_edge_attr, card, label, name) in \
+						enumerate(dataloader):
+					if self.args.cuda:
+						decomp_x, decomp_edge_index, decomp_edge_attr = \
+							_to_cuda(decomp_x), _to_cuda(decomp_edge_index), _to_cuda(decomp_edge_attr)
+						card, label = card.cuda(), label.cuda()
 
-				# print(decomp_x)
-				output, output_cla = model(decomp_x, decomp_edge_index, decomp_edge_attr)
-				output = output.squeeze()
-				loss += criterion(card.squeeze(), output).item()
-				l1 += torch.abs(card.squeeze() - output).item()
+					# print(decomp_x)
+					output, output_cla = model(decomp_x, decomp_edge_index, decomp_edge_attr)
+					output = output.squeeze()
+					loss += criterion(card.squeeze(), output).item()
+					l1 += torch.abs(card.squeeze() - output).item()
 
-				res.append((card.item(), output.item(), name[0]))
-			end = datetime.datetime.now()
-			elapse_time = (end - start).total_seconds()
-			all_eval_res.append((res, loss, l1, elapse_time))
-
+					res.append((card.item(), output.item(), name[0]))
+				end = datetime.datetime.now()
+				elapse_time = (end - start).total_seconds()
+				all_eval_res.append((res, loss, l1, elapse_time))
+		model.train()
 		if print_res:
 			print_eval_res(all_eval_res, print_details=print_detail)
 		return all_eval_res

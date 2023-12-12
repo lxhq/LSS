@@ -28,11 +28,12 @@ def get_command(dataset, epochs, output_path, full_data_dir, learning_rate):
     return command
 
 if __name__ == '__main__':
-    full_data_dir = '/home/ubuntu/Documents/workspace/dataset/'
-    datasets = ['youtube', 'yeast']
+    full_data_dir = '/home/lxhq/Documents/workspace/dataset/'
+    datasets = ['yeast', 'youtube']
     learning_rates = [1e-4]
     epochs = [150]
     repeat = 10
+    parallel = 5
     for dataset in datasets:
         output_dir = 'outputs/{}/'.format(dataset)
         if not Path(output_dir).is_dir():
@@ -45,7 +46,7 @@ if __name__ == '__main__':
                     output_path = output_dir + output_name
                     command = get_command(dataset, epoch, output_path, full_data_dir, learning_rate)
                     processes.append(execute_binary(command))
-                    if (idx + 1) % 5 == 0:
+                    if (idx + 1) % parallel == 0:
                         for process in processes:
                             process.wait()
                         process = []

@@ -57,7 +57,7 @@ class ActiveLearner(object):
 				print("{}-th QuerySet, {}-th Epoch: Reg. Loss={:.4f}, Cla. Loss={:.4f}"
 					  .format(loader_idx, epoch, epoch_loss, epoch_loss_cla), flush=True)
 				if (epoch + 1) % 5 == 0 and (epoch + 1) != epochs:
-					self.evaluate(model, criterion, test_datasets, print_res = True, print_detail=False)
+					self.evaluate(model, criterion, val_datasets, print_res = True, print_detail=False)
 
 			# Evaluation the model
 			all_eval_res = self.evaluate(model, criterion, test_datasets, print_res = True, print_detail=True)

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 
 class Queryset(object):
-	def __init__(self, args, train_queries, test_queries):
+	def __init__(self, args, train_queries, test_queries, validation_queries):
 		"""
 		all_subsets: {(size, patten) -> [(graphs, true_card]} // all queries subset
 		"""
@@ -62,7 +62,7 @@ class Queryset(object):
 		# self.all_subsets = self.transform_query_to_tensors(all_subsets)
 		self.train_sets = self.transform_query_to_tensors(train_queries)
 		self.test_sets = self.transform_query_to_tensors(test_queries)
-		self.val_sets = []
+		self.val_sets = self.transform_query_to_tensors(validation_queries)
 		self.num_train_queries = len(self.train_sets)
 		self.num_test_queries = len(self.test_sets)
 		self.num_val_queries = len(self.val_sets)

@@ -37,12 +37,17 @@ def main(args):
 	QD_train.decomose_queries()
 	train_queries = QD_train.all_subsets
 
+	QD_validation = QueryDecompose(queryset_dir=args.query_dir, query_names=args.validation_queries, 
+						   true_card_path=args.true_card_path, data_graph_path=args.data_graph_path, k=args.k)
+	QD_validation.decomose_queries()
+	validation_queries = QD_validation.all_subsets
+
 	QD_test = QueryDecompose(queryset_dir=args.query_dir, query_names=args.test_queries, 
 						   true_card_path=args.true_card_path, data_graph_path=args.data_graph_path, k=args.k)
 	QD_test.decomose_queries()
 	test_queries = QD_test.all_subsets
 
-	QS = Queryset(args= args, train_queries=train_queries, test_queries=test_queries)
+	QS = Queryset(args= args, train_queries=train_queries, test_queries=test_queries, validation_queries=validation_queries)
 
 	num_node_feat = QS.num_node_feat
 	num_edge_feat = QS.num_edge_feat
@@ -299,6 +304,7 @@ if __name__ == "__main__":
 	args.true_card_dir = args.true_homo_dir if args.matching == "homo" else args.true_iso_dir
 
 	args.train_queries = os.path.join(args.full_data_dir, args.dataset, "train.csv")
+	args.validation_queries = os.path.join(args.full_data_dir, args.dataset, "validation.csv")
 	args.test_queries = os.path.join(args.full_data_dir, args.dataset, "test.csv")
 	args.query_dir = os.path.join(args.full_data_dir, args.dataset, "query_graph")
 	args.data_graph_path = os.path.join(args.full_data_dir, args.dataset, 'data_graph', args.dataset + '.graph')
